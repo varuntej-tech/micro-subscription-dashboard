@@ -342,21 +342,25 @@ function showOtpAlert(message, type = 'error') {
     'hidden',
     'bg-rose-500/10', 'border-rose-500/20', 'text-rose-300',
     'bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-300',
-    'bg-indigo-500/10', 'border-indigo-500/20', 'text-indigo-300'
+    'bg-indigo-500/10', 'border-indigo-500/20', 'text-indigo-300',
+    'bg-amber-500/10', 'border-amber-500/20', 'text-amber-300'
   );
 
   if (type === 'success') {
     elements.otpFlowAlert.classList.add('bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-300');
-    elements.otpFlowAlertIcon.className = 'fa-solid fa-circle-check mt-0.5';
+    elements.otpFlowAlertIcon.className = 'fa-solid fa-circle-check mt-0.5 text-emerald-400';
+  } else if (type === 'warning') {
+    elements.otpFlowAlert.classList.add('bg-amber-500/10', 'border-amber-500/20', 'text-amber-300');
+    elements.otpFlowAlertIcon.className = 'fa-solid fa-triangle-exclamation mt-0.5 text-amber-400';
   } else if (type === 'info') {
     elements.otpFlowAlert.classList.add('bg-indigo-500/10', 'border-indigo-500/20', 'text-indigo-300');
-    elements.otpFlowAlertIcon.className = 'fa-solid fa-circle-info mt-0.5';
+    elements.otpFlowAlertIcon.className = 'fa-solid fa-circle-info mt-0.5 text-indigo-400';
   } else {
     elements.otpFlowAlert.classList.add('bg-rose-500/10', 'border-rose-500/20', 'text-rose-300');
-    elements.otpFlowAlertIcon.className = 'fa-solid fa-circle-exclamation mt-0.5';
+    elements.otpFlowAlertIcon.className = 'fa-solid fa-circle-exclamation mt-0.5 text-rose-400';
   }
 
-  elements.otpFlowAlertText.textContent = message;
+  elements.otpFlowAlertText.innerHTML = message;
 }
 
 function hideOtpAlert() {
@@ -443,13 +447,12 @@ async function handleSendOtp() {
 
     if (res.ok) {
       showOtpState2(email);
-      let alertMsg = `OTP code generated for ${email}. Valid for 5 minutes.`;
+      let alertMsg = `A 6-digit OTP code has been sent to <strong>${email}</strong>. Valid for 5 minutes.`;
       if (res.data.deliveryWarning) {
-        alertMsg += `<br><span class="text-amber-300 font-normal">⚠️ Resend Alert: ${res.data.deliveryWarning}<br><b>Tip:</b> Click <b>Dev Mailbox</b> in the top right to see your code instantly!</span>`;
+        alertMsg = `A 6-digit OTP code was generated for <strong>${email}</strong>.<br><div class="mt-1.5 pt-1.5 border-t border-amber-500/30 text-[11px] text-amber-200 font-normal">⚠️ <strong>Resend Free Tier Notice:</strong> Resend only delivers live emails to your registered account (<code>rahulteja2367@gmail.com</code>). To send to other addresses, verify your custom domain in Resend.</div>`;
       }
       showOtpAlert(alertMsg, res.data.deliveryWarning ? 'warning' : 'success');
-      showToast('OTP ready! Check inbox or Dev Mailbox.', 'success');
-      fetchDevEmails();
+      showToast(res.data.deliveryWarning ? 'OTP generated (Check notice below)' : 'OTP sent! Please check your inbox.', res.data.deliveryWarning ? 'warning' : 'success');
     } else {
       showOtpAlert(res.data.error || 'Failed to send OTP. Please try again.', 'error');
     }
@@ -562,7 +565,7 @@ async function handleSignup(e) {
   if (res.ok) {
     state.unverifiedEmail = email;
     localStorage.setItem('unverifiedEmail', email);
-    showToast('Verification email dispatched! Check dev mailbox.', 'success');
+    showToast('Verification email dispatched! Please check your inbox.', 'success');
     navigateTo('verify-email');
     if (res.data.previewUrl) {
       const box = document.getElementById('ethereal-preview-box');
@@ -572,8 +575,6 @@ async function handleSignup(e) {
         box.classList.remove('hidden');
       }
     }
-    // Open dev mailbox automatically to make verification super smooth
-    openMailboxDrawer();
   } else {
     elements.signupErrorAlert.classList.remove('hidden');
     elements.signupErrorText.textContent = res.data.error || 'Registration failed.';
@@ -1217,8 +1218,7 @@ async function handleSimulateCron() {
 // DEV MAILBOX INSPECTOR DRAWER
 // ==========================================
 function openMailboxDrawer() {
-  elements.drawerMailbox.classList.remove('translate-x-full');
-  fetchDevEmails();
+  // Mailbox drawer disabled
 }
 
 function closeMailboxDrawer() {
@@ -1345,11 +1345,11 @@ async function handleClearMailbox() {
 // ==========================================
 function initEvents() {
   // Navigation
-  elements.btnToggleMailbox.onclick = () => openMailboxDrawer();
-  elements.btnCloseMailbox.onclick = () => closeMailboxDrawer();
-  elements.btnRefreshMailbox.onclick = () => fetchDevEmails();
-  elements.btnClearMailbox.onclick = () => handleClearMailbox();
-  elements.btnInspectInMailbox.onclick = () => openMailboxDrawer();
+  if (elements.btnToggleMailbox) elements.btnToggleMailbox.onclick = () => openMailboxDrawer();
+  if (elements.btnCloseMailbox) elements.btnCloseMailbox.onclick = () => closeMailboxDrawer();
+  if (elements.btnRefreshMailbox) elements.btnRefreshMailbox.onclick = () => fetchDevEmails();
+  if (elements.btnClearMailbox) elements.btnClearMailbox.onclick = () => handleClearMailbox();
+  if (elements.btnInspectInMailbox) elements.btnInspectInMailbox.onclick = () => openMailboxDrawer();
 
   elements.btnLogout.onclick = () => logout();
   elements.btnBackToLogin.onclick = () => navigateTo('login');

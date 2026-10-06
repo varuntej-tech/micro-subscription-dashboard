@@ -59,8 +59,8 @@
 
       <!-- Action Items & User Menu -->
       <div class="flex items-center gap-3">
-        <!-- Dev Mailbox Drawer Toggle Button -->
-        <button id="btn-toggle-mailbox" class="relative px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-200 flex items-center gap-2 transition-all">
+        <!-- Dev Mailbox Drawer Toggle Button (Hidden) -->
+        <button id="btn-toggle-mailbox" class="hidden relative px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-200 items-center gap-2 transition-all">
           <i class="fa-solid fa-envelope-open-text text-indigo-400"></i>
           <span>Dev Mailbox</span>
           <span id="mailbox-badge" class="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-500 text-[10px] text-white font-bold">0</span>
@@ -374,8 +374,8 @@
             <span id="resend-btn-text">Resend Verification Email</span>
           </button>
 
-          <!-- Quick Dev Mailbox Opener -->
-          <button id="btn-inspect-in-mailbox" class="text-slate-400 hover:text-slate-200 font-medium flex items-center gap-1.5 transition-colors">
+          <!-- Quick Dev Mailbox Opener (Hidden) -->
+          <button id="btn-inspect-in-mailbox" class="hidden text-slate-400 hover:text-slate-200 font-medium items-center gap-1.5 transition-colors">
             <i class="fa-solid fa-inbox text-indigo-400"></i>
             <span>Check Dev Mailbox</span>
           </button>
@@ -779,9 +779,9 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- DRAWER: DEV MAILBOX / REAL-TIME EMAIL INSPECTION             -->
+  <!-- DRAWER: DEV MAILBOX (HIDDEN)                                -->
   <!-- ============================================================ -->
-  <div id="drawer-mailbox" class="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
+  <div id="drawer-mailbox" class="hidden fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
     <!-- Header -->
     <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
       <div class="flex items-center gap-2">
