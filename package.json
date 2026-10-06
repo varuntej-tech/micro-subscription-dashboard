@@ -1,0 +1,36 @@
+{
+  "name": "micro-multi-spend-calculator",
+  "version": "1.0.0",
+  "description": "Micro-Subscription & Smart Renewal Dashboard with real-time email verification",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node scripts/seed.js",
+    "tunnel": "node scripts/start-tunnel.js",
+    "test": "node test/test_api.js && node test/test_otp_api.js",
+    "test:otp": "node test/test_otp_api.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.10.1",
+    "sqlite3": "^5.1.7",
+    "uuid": "^11.1.0"
+  },
+  "keywords": [
+    "subscription-manager",
+    "financial-runway",
+    "email-verification",
+    "smart-renewal"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "localtunnel": "^2.0.2"
+  }
+}
