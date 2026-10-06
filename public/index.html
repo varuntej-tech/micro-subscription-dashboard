@@ -125,15 +125,21 @@
           </div>
         </div>
 
+        <!-- Invisible reCAPTCHA container for Phone Auth -->
+        <div id="recaptcha-container"></div>
+
         <!-- Auth Tabs -->
-        <div class="flex rounded-xl bg-slate-900/90 p-1 border border-slate-800 mb-6">
-          <button id="tab-login" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow">
+        <div class="grid grid-cols-4 gap-1 rounded-xl bg-slate-900/90 p-1 border border-slate-800 mb-6">
+          <button id="tab-login" class="py-2 text-[11px] font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow text-center">
             Sign In
           </button>
-          <button id="tab-otp-login" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200">
+          <button id="tab-otp-login" class="py-2 text-[11px] font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200 text-center">
             Email OTP
           </button>
-          <button id="tab-signup" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200">
+          <button id="tab-phone-login" class="py-2 text-[11px] font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200 text-center">
+            Phone SMS
+          </button>
+          <button id="tab-signup" class="py-2 text-[11px] font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200 text-center">
             Register
           </button>
         </div>
@@ -251,6 +257,84 @@
               <button type="button" id="btn-resend-otp" class="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 transition-colors">
                 <i class="fa-solid fa-rotate-right text-[10px]"></i>
                 <span id="btn-resend-otp-text">Resend OTP</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phone SMS Authentication Flow (Firebase 6-digit SMS OTP) -->
+        <div id="container-phone-flow" class="space-y-4 hidden">
+          <div class="text-center mb-4">
+            <h2 class="text-xl font-bold text-white flex items-center justify-center gap-2">
+              <i class="fa-solid fa-mobile-screen-button text-indigo-400"></i> Phone SMS Login
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Instant passwordless authentication via mobile SMS code</p>
+          </div>
+
+          <!-- Alert Notification Banner -->
+          <div id="phone-flow-alert" class="hidden p-3 rounded-lg text-xs flex items-start gap-2 border transition-all">
+            <i id="phone-flow-alert-icon" class="fa-solid fa-circle-info mt-0.5"></i>
+            <span id="phone-flow-alert-text"></span>
+          </div>
+
+          <!-- STATE 1: Send SMS OTP -->
+          <div id="phone-state-send" class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Mobile Phone Number</label>
+              <div class="flex gap-2">
+                <input type="text" id="phone-input-country" value="+91" placeholder="+91"
+                  class="w-20 px-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-sm text-center text-slate-100 font-mono focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
+                <div class="relative flex-1">
+                  <i class="fa-solid fa-phone absolute left-3.5 top-3 text-slate-500 text-sm"></i>
+                  <input type="tel" id="phone-input-number" required placeholder="98765 43210"
+                    class="w-full pl-10 pr-4 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono">
+                </div>
+              </div>
+            </div>
+
+            <div class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-[11px] text-indigo-300">
+              <i class="fa-solid fa-shield-halved mr-1"></i> A secure 6-digit SMS verification code will be dispatched to this mobile number via Google Firebase.
+            </div>
+
+            <button type="button" id="btn-send-phone-otp" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2">
+              <span id="btn-send-phone-otp-text">Send SMS OTP</span>
+              <i class="fa-solid fa-paper-plane text-xs"></i>
+            </button>
+          </div>
+
+          <!-- STATE 2: Verify SMS OTP -->
+          <div id="phone-state-verify" class="space-y-4 hidden">
+            <!-- Target Phone Display Chip & Change Button -->
+            <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-xs">
+              <div class="flex items-center gap-2 truncate">
+                <i class="fa-solid fa-mobile-screen-button text-indigo-400"></i>
+                <span id="phone-target-display" class="font-medium text-slate-200 font-mono truncate">+91 9876543210</span>
+              </div>
+              <button type="button" id="btn-phone-change" class="text-indigo-400 hover:text-indigo-300 font-medium text-[11px] ml-2 shrink-0 underline">
+                Change
+              </button>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-center text-slate-400 mb-2">
+                Enter 6-Digit SMS Code
+              </label>
+              <div class="relative">
+                <input type="text" id="phone-input-code" maxlength="6" placeholder="• • • • • •" autocomplete="one-time-code"
+                  class="w-full py-3 px-4 bg-slate-900 border-2 border-indigo-500/50 rounded-xl text-center text-2xl font-mono tracking-[0.5em] text-indigo-300 font-bold focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+              </div>
+            </div>
+
+            <button type="button" id="btn-verify-phone-otp" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2">
+              <span id="btn-verify-phone-otp-text">Verify SMS & Log In</span>
+              <i class="fa-solid fa-arrow-right text-xs"></i>
+            </button>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+              <span class="text-slate-400">Didn't receive the SMS?</span>
+              <button type="button" id="btn-resend-phone-otp" class="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 transition-colors">
+                <i class="fa-solid fa-rotate-right text-[10px]"></i>
+                <span>Resend SMS</span>
               </button>
             </div>
           </div>

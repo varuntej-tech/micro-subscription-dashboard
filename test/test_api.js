@@ -281,6 +281,26 @@ async function runTestSuite() {
     assert.strictEqual(googleRes.data.user.is_verified, true);
     console.log('  ✅ Google authentication succeeded and issued verified session token.');
 
+    console.log('\n[TEST 10] Testing Phone SMS Sign-In (POST /api/auth/phone)...');
+    const phoneRes = await request('POST', '/api/auth/phone', {
+      phone: '+919876543210',
+      uid: 'firebase_phone_uid_98765'
+    });
+    assert.strictEqual(phoneRes.status, 200, 'Phone sign-in should return 200 OK');
+    assert.strictEqual(phoneRes.data.success, true, 'Phone auth should return success true');
+    assert.ok(phoneRes.data.token, 'Must return JWT session token');
+    assert.strictEqual(phoneRes.data.user.phone, '+919876543210');
+    assert.strictEqual(phoneRes.data.user.is_verified, true);
+
+    // Verify existing phone login works idempotently
+    const phoneRes2 = await request('POST', '/api/auth/phone', {
+      phone: '+919876543210',
+      uid: 'firebase_phone_uid_98765'
+    });
+    assert.strictEqual(phoneRes2.status, 200);
+    assert.ok(phoneRes2.data.token);
+    console.log('  ✅ Phone SMS authentication succeeded and issued verified session token.');
+
     console.log('\n========================================');
     console.log('🎉 ALL AUTOMATED TESTS PASSED SUCCESSFULLY!');
     console.log('========================================\n');

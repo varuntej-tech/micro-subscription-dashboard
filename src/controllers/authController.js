@@ -470,11 +470,86 @@ const googleAuth = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/auth/phone
+ * Authenticates or registers a user verified via Firebase Phone SMS
+ */
+const phoneAuth = async (req, res) => {
+  try {
+    const { phone, uid } = req.body;
+    if (!phone) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Phone number is required from mobile authentication' 
+      });
+    }
+
+    const cleanPhone = phone.trim();
+    // Unique identifier for phone users in database
+    const phoneEmail = `${cleanPhone.replace(/[^0-9+]/g, '')}@phone.auth`;
+
+    let user = await getAsync(
+      `SELECT * FROM users WHERE email = ?`,
+      [phoneEmail]
+    );
+
+    if (!user) {
+      const userId = uid || uuidv4();
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+      const createdAt = new Date().toISOString();
+
+      await runAsync(
+        `INSERT INTO users (user_id, email, password_hash, is_verified, created_at)
+         VALUES (?, ?, ?, 1, ?)`,
+        [userId, phoneEmail, passwordHash, createdAt]
+      );
+
+      user = {
+        user_id: userId,
+        email: phoneEmail,
+        is_verified: 1,
+        created_at: createdAt
+      };
+      console.log(`[AuthController] Registered new Phone user: ${cleanPhone}`);
+    } else if (!user.is_verified) {
+      await runAsync(`UPDATE users SET is_verified = 1 WHERE user_id = ?`, [user.user_id]);
+      user.is_verified = 1;
+    }
+
+    // Issue JWT session token
+    const token = jwt.sign(
+      { user_id: user.user_id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Phone SMS authentication successful',
+      token,
+      user: {
+        id: user.user_id,
+        email: cleanPhone,
+        phone: cleanPhone,
+        is_verified: true
+      }
+    });
+  } catch (error) {
+    console.error('[AuthController.phoneAuth] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Phone authentication failed'
+    });
+  }
+};
+
 module.exports = {
   signup,
   login,
   verifyEmail,
   resendVerification,
   googleAuth,
+  phoneAuth,
   getMe
 };

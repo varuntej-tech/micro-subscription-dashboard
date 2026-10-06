@@ -16,7 +16,9 @@ const state = {
   resendInterval: null,
   otpExpiryTimer: null,
   otpTimeRemaining: 300,
-  otpTargetEmail: ''
+  otpTargetEmail: '',
+  phoneConfirmationResult: null,
+  targetPhoneNumber: ''
 };
 
 // Firebase Configuration (Google 1-Click Authentication)
@@ -62,6 +64,7 @@ const elements = {
   // Auth Forms & Tabs
   tabLogin: document.getElementById('tab-login'),
   tabOtpLogin: document.getElementById('tab-otp-login'),
+  tabPhoneLogin: document.getElementById('tab-phone-login'),
   tabSignup: document.getElementById('tab-signup'),
   formLogin: document.getElementById('form-login'),
   formSignup: document.getElementById('form-signup'),
@@ -93,6 +96,24 @@ const elements = {
   btnVerifyOtpText: document.getElementById('btn-verify-otp-text'),
   btnResendOtp: document.getElementById('btn-resend-otp'),
   btnResendOtpText: document.getElementById('btn-resend-otp-text'),
+
+  // Phone SMS Authentication Flow Elements
+  containerPhoneFlow: document.getElementById('container-phone-flow'),
+  phoneFlowAlert: document.getElementById('phone-flow-alert'),
+  phoneFlowAlertIcon: document.getElementById('phone-flow-alert-icon'),
+  phoneFlowAlertText: document.getElementById('phone-flow-alert-text'),
+  phoneStateSend: document.getElementById('phone-state-send'),
+  phoneInputCountry: document.getElementById('phone-input-country'),
+  phoneInputNumber: document.getElementById('phone-input-number'),
+  btnSendPhoneOtp: document.getElementById('btn-send-phone-otp'),
+  btnSendPhoneOtpText: document.getElementById('btn-send-phone-otp-text'),
+  phoneStateVerify: document.getElementById('phone-state-verify'),
+  phoneTargetDisplay: document.getElementById('phone-target-display'),
+  btnPhoneChange: document.getElementById('btn-phone-change'),
+  phoneInputCode: document.getElementById('phone-input-code'),
+  btnVerifyPhoneOtp: document.getElementById('btn-verify-phone-otp'),
+  btnVerifyPhoneOtpText: document.getElementById('btn-verify-phone-otp-text'),
+  btnResendPhoneOtp: document.getElementById('btn-resend-phone-otp'),
 
   // Interstitial Verification View
   verifyEmailDisplay: document.getElementById('verify-email-display'),
@@ -320,27 +341,38 @@ function renderView() {
     showSignupTab();
   } else if (route === 'otp' || route === 'otp-login') {
     showOtpTab();
+  } else if (route === 'phone' || route === 'phone-login') {
+    showPhoneTab();
   } else {
     showLoginTab();
   }
 }
 
+const TAB_ACTIVE_CLASS = 'py-2 text-[11px] font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow text-center';
+const TAB_INACTIVE_CLASS = 'py-2 text-[11px] font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200 text-center';
+
 function showLoginTab() {
-  elements.tabLogin.className = 'flex-1 py-2 text-xs font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow';
-  elements.tabOtpLogin.className = 'flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200';
-  elements.tabSignup.className = 'flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200';
+  if (elements.tabLogin) elements.tabLogin.className = TAB_ACTIVE_CLASS;
+  if (elements.tabOtpLogin) elements.tabOtpLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabPhoneLogin) elements.tabPhoneLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabSignup) elements.tabSignup.className = TAB_INACTIVE_CLASS;
+
   elements.formLogin.classList.remove('hidden');
   elements.containerOtpFlow.classList.add('hidden');
+  if (elements.containerPhoneFlow) elements.containerPhoneFlow.classList.add('hidden');
   elements.formSignup.classList.add('hidden');
   elements.loginErrorAlert.classList.add('hidden');
 }
 
 function showOtpTab() {
-  elements.tabOtpLogin.className = 'flex-1 py-2 text-xs font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow';
-  elements.tabLogin.className = 'flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200';
-  elements.tabSignup.className = 'flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200';
+  if (elements.tabOtpLogin) elements.tabOtpLogin.className = TAB_ACTIVE_CLASS;
+  if (elements.tabLogin) elements.tabLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabPhoneLogin) elements.tabPhoneLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabSignup) elements.tabSignup.className = TAB_INACTIVE_CLASS;
+
   elements.containerOtpFlow.classList.remove('hidden');
   elements.formLogin.classList.add('hidden');
+  if (elements.containerPhoneFlow) elements.containerPhoneFlow.classList.add('hidden');
   elements.formSignup.classList.add('hidden');
   hideOtpAlert();
   if (!state.otpTargetEmail) {
@@ -348,13 +380,32 @@ function showOtpTab() {
   }
 }
 
+function showPhoneTab() {
+  if (elements.tabPhoneLogin) elements.tabPhoneLogin.className = TAB_ACTIVE_CLASS;
+  if (elements.tabLogin) elements.tabLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabOtpLogin) elements.tabOtpLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabSignup) elements.tabSignup.className = TAB_INACTIVE_CLASS;
+
+  if (elements.containerPhoneFlow) elements.containerPhoneFlow.classList.remove('hidden');
+  elements.formLogin.classList.add('hidden');
+  elements.containerOtpFlow.classList.add('hidden');
+  elements.formSignup.classList.add('hidden');
+  hidePhoneAlert();
+  if (!state.phoneConfirmationResult) {
+    showPhoneState1();
+  }
+}
+
 function showSignupTab() {
-  elements.tabSignup.className = 'flex-1 py-2 text-xs font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow';
-  elements.tabLogin.className = 'flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200';
-  elements.tabOtpLogin.className = 'flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200';
+  if (elements.tabSignup) elements.tabSignup.className = TAB_ACTIVE_CLASS;
+  if (elements.tabLogin) elements.tabLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabOtpLogin) elements.tabOtpLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabPhoneLogin) elements.tabPhoneLogin.className = TAB_INACTIVE_CLASS;
+
   elements.formSignup.classList.remove('hidden');
   elements.formLogin.classList.add('hidden');
   elements.containerOtpFlow.classList.add('hidden');
+  if (elements.containerPhoneFlow) elements.containerPhoneFlow.classList.add('hidden');
   elements.signupErrorAlert.classList.add('hidden');
 }
 
@@ -530,6 +581,161 @@ async function handleVerifyOtp() {
   } finally {
     elements.btnVerifyOtp.disabled = false;
     elements.btnVerifyOtpText.textContent = 'Verify OTP & Log In';
+  }
+}
+
+// ==========================================
+// PHONE SMS AUTHENTICATION (FIREBASE)
+// ==========================================
+function showPhoneAlert(message, type = 'error') {
+  if (!elements.phoneFlowAlert) return;
+  elements.phoneFlowAlert.classList.remove(
+    'hidden',
+    'bg-rose-500/10', 'border-rose-500/20', 'text-rose-300',
+    'bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-300',
+    'bg-indigo-500/10', 'border-indigo-500/20', 'text-indigo-300',
+    'bg-amber-500/10', 'border-amber-500/20', 'text-amber-300'
+  );
+
+  if (type === 'success') {
+    elements.phoneFlowAlert.classList.add('bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-300');
+    elements.phoneFlowAlertIcon.className = 'fa-solid fa-circle-check mt-0.5 text-emerald-400';
+  } else if (type === 'warning') {
+    elements.phoneFlowAlert.classList.add('bg-amber-500/10', 'border-amber-500/20', 'text-amber-300');
+    elements.phoneFlowAlertIcon.className = 'fa-solid fa-triangle-exclamation mt-0.5 text-amber-400';
+  } else if (type === 'info') {
+    elements.phoneFlowAlert.classList.add('bg-indigo-500/10', 'border-indigo-500/20', 'text-indigo-300');
+    elements.phoneFlowAlertIcon.className = 'fa-solid fa-circle-info mt-0.5 text-indigo-400';
+  } else {
+    elements.phoneFlowAlert.classList.add('bg-rose-500/10', 'border-rose-500/20', 'text-rose-300');
+    elements.phoneFlowAlertIcon.className = 'fa-solid fa-circle-exclamation mt-0.5 text-rose-400';
+  }
+
+  elements.phoneFlowAlertText.innerHTML = message;
+}
+
+function hidePhoneAlert() {
+  if (elements.phoneFlowAlert) elements.phoneFlowAlert.classList.add('hidden');
+}
+
+function showPhoneState1() {
+  if (elements.phoneStateSend) elements.phoneStateSend.classList.remove('hidden');
+  if (elements.phoneStateVerify) elements.phoneStateVerify.classList.add('hidden');
+  hidePhoneAlert();
+  if (elements.phoneInputNumber) elements.phoneInputNumber.focus();
+}
+
+function showPhoneState2(phone) {
+  state.targetPhoneNumber = phone;
+  if (elements.phoneTargetDisplay) elements.phoneTargetDisplay.textContent = phone;
+  if (elements.phoneStateSend) elements.phoneStateSend.classList.add('hidden');
+  if (elements.phoneStateVerify) elements.phoneStateVerify.classList.remove('hidden');
+  if (elements.phoneInputCode) {
+    elements.phoneInputCode.value = '';
+    elements.phoneInputCode.focus();
+  }
+}
+
+function initRecaptchaVerifier() {
+  if (typeof firebase === 'undefined' || !firebase.auth) return null;
+  if (!window.recaptchaVerifier) {
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+      'size': 'invisible',
+      'callback': () => {
+        console.log('[Firebase Recaptcha] Verified for SMS dispatch');
+      }
+    });
+  }
+  return window.recaptchaVerifier;
+}
+
+async function handleSendPhoneOtp() {
+  hidePhoneAlert();
+  const country = elements.phoneInputCountry ? elements.phoneInputCountry.value.trim() : '+91';
+  const rawNumber = elements.phoneInputNumber ? elements.phoneInputNumber.value.trim().replace(/\s+/g, '') : '';
+
+  if (!rawNumber || rawNumber.length < 5) {
+    showPhoneAlert('Please enter a valid mobile phone number.', 'error');
+    if (elements.phoneInputNumber) elements.phoneInputNumber.focus();
+    return;
+  }
+
+  const fullPhone = `${country}${rawNumber}`;
+
+  elements.btnSendPhoneOtp.disabled = true;
+  elements.btnSendPhoneOtpText.textContent = 'Sending SMS...';
+
+  try {
+    const appVerifier = initRecaptchaVerifier();
+    if (!appVerifier) {
+      throw new Error('Firebase Authentication is not ready yet. Please refresh the page.');
+    }
+
+    const confirmationResult = await firebase.auth().signInWithPhoneNumber(fullPhone, appVerifier);
+    state.phoneConfirmationResult = confirmationResult;
+
+    showPhoneState2(fullPhone);
+    showPhoneAlert(`A 6-digit SMS verification code has been dispatched to <strong>${fullPhone}</strong>.`, 'success');
+    showToast('SMS sent! Please check your mobile messages.', 'success');
+  } catch (err) {
+    console.error('[Firebase Phone Send] Error:', err);
+    if (window.recaptchaVerifier) {
+      try { window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId)); } catch (_) {}
+    }
+    showPhoneAlert(err.message || 'Failed to send SMS OTP. Please check the number and try again.', 'error');
+  } finally {
+    elements.btnSendPhoneOtp.disabled = false;
+    elements.btnSendPhoneOtpText.textContent = 'Send SMS OTP';
+  }
+}
+
+async function handleVerifyPhoneOtp() {
+  hidePhoneAlert();
+  const code = elements.phoneInputCode ? elements.phoneInputCode.value.trim() : '';
+
+  if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+    showPhoneAlert('Please enter a valid 6-digit numeric SMS code.', 'error');
+    if (elements.phoneInputCode) elements.phoneInputCode.focus();
+    return;
+  }
+
+  if (!state.phoneConfirmationResult) {
+    showPhoneAlert('Session expired. Please request a new SMS code.', 'error');
+    showPhoneState1();
+    return;
+  }
+
+  elements.btnVerifyPhoneOtp.disabled = true;
+  elements.btnVerifyPhoneOtpText.textContent = 'Verifying SMS...';
+
+  try {
+    const result = await state.phoneConfirmationResult.confirm(code);
+    const user = result.user;
+
+    const res = await api('/api/auth/phone', {
+      method: 'POST',
+      body: JSON.stringify({
+        phone: user.phoneNumber || state.targetPhoneNumber,
+        uid: user.uid
+      })
+    });
+
+    if (res.ok && res.data.token) {
+      state.token = res.data.token;
+      state.user = res.data.user;
+      localStorage.setItem('token', state.token);
+      localStorage.setItem('user', JSON.stringify(state.user));
+      showToast(`Phone number verified! Welcome, ${state.user.phone || 'friend'}!`, 'success');
+      navigateTo('dashboard');
+    } else {
+      showPhoneAlert(res.data.error || 'Server failed to authenticate phone user.', 'error');
+    }
+  } catch (err) {
+    console.error('[Firebase Phone Verify] Error:', err);
+    showPhoneAlert(err.message || 'Invalid SMS verification code. Please check and try again.', 'error');
+  } finally {
+    elements.btnVerifyPhoneOtp.disabled = false;
+    elements.btnVerifyPhoneOtpText.textContent = 'Verify SMS & Log In';
   }
 }
 
@@ -1446,9 +1652,34 @@ function initEvents() {
   // Auth tabs & forms
   elements.tabLogin.onclick = () => { navigateTo('login'); showLoginTab(); };
   elements.tabOtpLogin.onclick = () => { navigateTo('otp'); showOtpTab(); };
+  if (elements.tabPhoneLogin) {
+    elements.tabPhoneLogin.onclick = () => { navigateTo('phone'); showPhoneTab(); };
+  }
   elements.tabSignup.onclick = () => { navigateTo('signup'); showSignupTab(); };
   elements.formLogin.onsubmit = handleLogin;
   elements.formSignup.onsubmit = handleSignup;
+
+  // Phone SMS Authentication Event Handlers
+  if (elements.btnSendPhoneOtp) elements.btnSendPhoneOtp.onclick = handleSendPhoneOtp;
+  if (elements.btnVerifyPhoneOtp) elements.btnVerifyPhoneOtp.onclick = handleVerifyPhoneOtp;
+  if (elements.btnPhoneChange) elements.btnPhoneChange.onclick = showPhoneState1;
+  if (elements.btnResendPhoneOtp) elements.btnResendPhoneOtp.onclick = handleSendPhoneOtp;
+  if (elements.phoneInputNumber) {
+    elements.phoneInputNumber.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSendPhoneOtp();
+      }
+    };
+  }
+  if (elements.phoneInputCode) {
+    elements.phoneInputCode.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleVerifyPhoneOtp();
+      }
+    };
+  }
 
   // Email OTP Two-State Flow Event Handlers
   elements.btnSendOtp.onclick = handleSendOtp;

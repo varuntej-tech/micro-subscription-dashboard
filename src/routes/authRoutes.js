@@ -13,6 +13,9 @@ router.post('/login', authController.login);
 // Google Sign-In (Firebase 1-click authentication)
 router.post('/google', authController.googleAuth);
 
+// Phone SMS Authentication (Firebase 6-digit SMS OTP)
+router.post('/phone', authController.phoneAuth);
+
 // Token / OTP Verification (Step 4)
 router.get('/verify', authController.verifyEmail);
 router.post('/verify', authController.verifyEmail);
