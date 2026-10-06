@@ -10,6 +10,9 @@ router.post('/signup', authController.signup);
 // Login (Strict verification check)
 router.post('/login', authController.login);
 
+// Google Sign-In (Firebase 1-click authentication)
+router.post('/google', authController.googleAuth);
+
 // Token / OTP Verification (Step 4)
 router.get('/verify', authController.verifyEmail);
 router.post('/verify', authController.verifyEmail);

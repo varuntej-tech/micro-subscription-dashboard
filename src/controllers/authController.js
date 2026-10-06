@@ -397,10 +397,84 @@ const getMe = async (req, res) => {
   });
 };
 
+/**
+ * POST /api/auth/google
+ * Authenticates or registers a user verified via Google OAuth / Firebase
+ */
+const googleAuth = async (req, res) => {
+  try {
+    const { email, displayName, uid } = req.body;
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email is required from Google authentication' 
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check existing user
+    let user = await getAsync(
+      `SELECT * FROM users WHERE email = ?`,
+      [normalizedEmail]
+    );
+
+    if (!user) {
+      const userId = uid || uuidv4();
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+      const createdAt = new Date().toISOString();
+
+      await runAsync(
+        `INSERT INTO users (user_id, email, password_hash, is_verified, created_at)
+         VALUES (?, ?, ?, 1, ?)`,
+        [userId, normalizedEmail, passwordHash, createdAt]
+      );
+
+      user = {
+        user_id: userId,
+        email: normalizedEmail,
+        is_verified: 1,
+        created_at: createdAt
+      };
+      console.log(`[AuthController] Registered new Google user: ${normalizedEmail}`);
+    } else if (!user.is_verified) {
+      await runAsync(`UPDATE users SET is_verified = 1 WHERE user_id = ?`, [user.user_id]);
+      user.is_verified = 1;
+    }
+
+    // Issue JWT session token
+    const token = jwt.sign(
+      { user_id: user.user_id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Google sign-in successful',
+      token,
+      user: {
+        id: user.user_id,
+        email: user.email,
+        displayName: displayName || user.email.split('@')[0],
+        is_verified: true
+      }
+    });
+  } catch (error) {
+    console.error('[AuthController.googleAuth] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Google authentication failed'
+    });
+  }
+};
+
 module.exports = {
   signup,
   login,
   verifyEmail,
   resendVerification,
+  googleAuth,
   getMe
 };

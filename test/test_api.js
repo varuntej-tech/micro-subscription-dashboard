@@ -268,6 +268,19 @@ async function runTestSuite() {
     assert.ok(updatedSub3.next_renewal_date > overdueDateStr, 'Next renewal date must be advanced into future');
     console.log(`  ✅ Rolled over overdue renewal date from ${overdueDateStr} to ${updatedSub3.next_renewal_date}`);
 
+    console.log('\n[TEST 9] Testing Google 1-Click Sign-In (POST /api/auth/google)...');
+    const googleRes = await request('POST', '/api/auth/google', {
+      email: 'google_user_test@gmail.com',
+      displayName: 'Google Tester',
+      uid: 'google_oauth_123456'
+    });
+    assert.strictEqual(googleRes.status, 200, 'Google sign-in should return 200 OK');
+    assert.strictEqual(googleRes.data.success, true, 'Google auth should return success true');
+    assert.ok(googleRes.data.token, 'Must return JWT session token');
+    assert.strictEqual(googleRes.data.user.email, 'google_user_test@gmail.com');
+    assert.strictEqual(googleRes.data.user.is_verified, true);
+    console.log('  ✅ Google authentication succeeded and issued verified session token.');
+
     console.log('\n========================================');
     console.log('🎉 ALL AUTOMATED TESTS PASSED SUCCESSFULLY!');
     console.log('========================================\n');

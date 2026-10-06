@@ -19,8 +19,32 @@ const state = {
   otpTargetEmail: ''
 };
 
+// Firebase Configuration (Google 1-Click Authentication)
+const firebaseConfig = {
+  apiKey: "AIzaSyC4fCFybuVoAP_zV7i6ucPJIZ0zs67_7tw",
+  authDomain: "micro-subscription-dashboard.firebaseapp.com",
+  projectId: "micro-subscription-dashboard",
+  storageBucket: "micro-subscription-dashboard.firebasestorage.app",
+  messagingSenderId: "661356125246",
+  appId: "1:661356125246:web:833805dc3bffc8508f456f",
+  measurementId: "G-G5ME1CWRJJ"
+};
+
+if (typeof firebase !== 'undefined') {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    console.log('[Firebase] Initialized for Google 1-Click Sign-In');
+  } catch (err) {
+    console.warn('[Firebase] Init warning:', err.message);
+  }
+}
+
 // UI Element Selectors
 const elements = {
+  // Google 1-Click Sign-In
+  btnGoogleSignin: document.getElementById('btn-google-signin'),
+  btnGoogleSigninText: document.getElementById('btn-google-signin-text'),
+
   // Navigation & Headers
   navAuthActions: document.getElementById('nav-auth-actions'),
   navUserEmail: document.getElementById('nav-user-email'),
@@ -509,6 +533,68 @@ async function handleVerifyOtp() {
   }
 }
 
+// ==========================================
+// GOOGLE 1-CLICK AUTHENTICATION (FIREBASE)
+// ==========================================
+async function handleGoogleSignIn() {
+  if (typeof firebase === 'undefined' || !firebase.auth) {
+    showToast('Google Sign-In is initializing. Please wait a moment...', 'info');
+    return;
+  }
+
+  const btn = elements.btnGoogleSignin;
+  const originalText = elements.btnGoogleSigninText ? elements.btnGoogleSigninText.textContent : 'Continue with Google';
+
+  try {
+    if (btn) btn.disabled = true;
+    if (elements.btnGoogleSigninText) elements.btnGoogleSigninText.textContent = 'Connecting with Google...';
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    const result = await firebase.auth().signInWithPopup(provider);
+    const user = result.user;
+
+    if (!user || !user.email) {
+      throw new Error('Google sign-in did not return an email address.');
+    }
+
+    if (elements.btnGoogleSigninText) elements.btnGoogleSigninText.textContent = 'Logging in...';
+
+    // Synchronize with backend API
+    const res = await api('/api/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: user.email,
+        displayName: user.displayName || user.email.split('@')[0],
+        uid: user.uid
+      })
+    });
+
+    if (res.ok && res.data.token) {
+      state.token = res.data.token;
+      state.user = res.data.user;
+      localStorage.setItem('token', state.token);
+      localStorage.setItem('user', JSON.stringify(state.user));
+      showToast(`Welcome, ${state.user.displayName || user.displayName || 'friend'}!`, 'success');
+      navigateTo('dashboard');
+    } else {
+      showToast(res.data.error || 'Server rejected Google authentication.', 'error');
+    }
+  } catch (err) {
+    console.error('[Google Sign-In] Error:', err);
+    if (err.code === 'auth/popup-closed-by-user') {
+      showToast('Sign-in popup closed.', 'info');
+    } else if (err.code === 'auth/unauthorized-domain') {
+      showToast('Domain not authorized in Firebase Console yet. Please add your domain to Authorized Domains.', 'error');
+    } else {
+      showToast(err.message || 'Google sign-in encountered an issue.', 'error');
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+    if (elements.btnGoogleSigninText) elements.btnGoogleSigninText.textContent = originalText;
+  }
+}
 
 // ==========================================
 // AUTHENTICATION LOGIC
@@ -1353,6 +1439,9 @@ function initEvents() {
 
   elements.btnLogout.onclick = () => logout();
   elements.btnBackToLogin.onclick = () => navigateTo('login');
+
+  // Google 1-Click Authentication
+  if (elements.btnGoogleSignin) elements.btnGoogleSignin.onclick = handleGoogleSignIn;
 
   // Auth tabs & forms
   elements.tabLogin.onclick = () => { navigateTo('login'); showLoginTab(); };
