@@ -449,7 +449,7 @@ async function handleSendOtp() {
       showOtpState2(email);
       let alertMsg = `A 6-digit OTP code has been sent to <strong>${email}</strong>. Valid for 5 minutes.`;
       if (res.data.deliveryWarning) {
-        alertMsg = `A 6-digit OTP code was generated for <strong>${email}</strong>.<br><div class="mt-1.5 pt-1.5 border-t border-amber-500/30 text-[11px] text-amber-200 font-normal">⚠️ <strong>Resend Free Tier Notice:</strong> Resend only delivers live emails to your registered account (<code>rahulteja2367@gmail.com</code>). To send to other addresses, verify your custom domain in Resend.</div>`;
+        alertMsg = `A 6-digit OTP code was generated for <strong>${email}</strong>.<br><div class="mt-1.5 pt-1.5 border-t border-amber-500/30 text-[11px] text-amber-200 font-normal">⚠️ <strong>Delivery Notice:</strong> ${res.data.deliveryWarning}</div>`;
       }
       showOtpAlert(alertMsg, res.data.deliveryWarning ? 'warning' : 'success');
       showToast(res.data.deliveryWarning ? 'OTP generated (Check notice below)' : 'OTP sent! Please check your inbox.', res.data.deliveryWarning ? 'warning' : 'success');

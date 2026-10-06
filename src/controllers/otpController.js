@@ -9,6 +9,29 @@ const { JWT_SECRET } = require('../middleware/authMiddleware');
 const OTP_EXPIRY_MINUTES = 5;
 
 /**
+ * Initialize Supabase Client if credentials are provided in environment
+ */
+let supabaseClient = null;
+const getSupabaseClient = () => {
+  if (supabaseClient) return supabaseClient;
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (url && key) {
+    try {
+      const { createClient } = require('@supabase/supabase-js');
+      supabaseClient = createClient(url.trim(), key.trim());
+      console.log('[OtpController] ⚡ Supabase Auth client connected for worldwide OTP delivery.');
+    } catch (err) {
+      console.warn('[OtpController] Supabase init warning:', err.message);
+    }
+  }
+  return supabaseClient;
+};
+
+// Eager initialize
+getSupabaseClient();
+
+/**
  * Generate a random 6-digit numeric OTP code
  */
 const generate6DigitOtp = () => {
@@ -46,25 +69,47 @@ const sendOtp = async (req, res) => {
       [normalizedEmail, now.toISOString()]
     );
 
-    // Generate random 6-digit numeric OTP
-    const rawOtp = generate6DigitOtp();
+    // 1. If Supabase is active, dispatch OTP worldwide over HTTPS (delivers to ANY email without domain)
+    const sb = getSupabaseClient();
+    if (sb) {
+      try {
+        const { data, error } = await sb.auth.signInWithOtp({
+          email: normalizedEmail,
+          options: {
+            shouldCreateUser: true
+          }
+        });
 
-    // Securely hash OTP with bcrypt before storing in database
+        if (error) {
+          console.warn('[OtpController] Supabase send notice:', error.message);
+        } else {
+          console.log(`[OtpController] 🚀 OTP dispatched worldwide via Supabase to ${normalizedEmail}`);
+          return res.status(200).json({
+            success: true,
+            message: `A 6-digit OTP has been sent to ${normalizedEmail}. It is valid for ${OTP_EXPIRY_MINUTES} minutes.`,
+            email: normalizedEmail,
+            expiresInMinutes: OTP_EXPIRY_MINUTES,
+            provider: 'supabase'
+          });
+        }
+      } catch (sbErr) {
+        console.warn('[OtpController] Supabase error:', sbErr.message);
+      }
+    }
+
+    // 2. Fallback to Local + Resend generation (used for test suite and offline dev)
+    const rawOtp = generate6DigitOtp();
     const saltRounds = 10;
     const otpHash = await bcrypt.hash(rawOtp, saltRounds);
-
-    // Expiration timestamp strictly set to 5 minutes from generation
     const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
     const createdAt = now.toISOString();
 
-    // Store in SQLite database
     await runAsync(
       `INSERT INTO email_otps (email, otp_hash, expires_at, created_at)
        VALUES (?, ?, ?, ?)`,
       [normalizedEmail, otpHash, expiresAt, createdAt]
     );
 
-    // Send clean, simple text email with raw OTP and expiration duration
     const mailRecord = await sendOtpEmail({
       to: normalizedEmail,
       otp: rawOtp,
@@ -112,8 +157,62 @@ const verifyOtp = async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
     const cleanOtp = String(otp).trim();
 
+    // 1. Try Supabase verification if Supabase is connected
+    const sb = getSupabaseClient();
+    if (sb) {
+      try {
+        const { data, error } = await sb.auth.verifyOtp({
+          email: normalizedEmail,
+          token: cleanOtp,
+          type: 'email'
+        });
+
+        if (!error && (data?.user || data?.session)) {
+          console.log(`[OtpController] ✅ Verified OTP via Supabase for: ${normalizedEmail}`);
+
+          let user = await getAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
+          if (!user) {
+            const userId = data.user?.id || uuidv4();
+            const dummyHash = await bcrypt.hash(uuidv4(), 10);
+            const createdAt = new Date().toISOString();
+            await runAsync(
+              `INSERT INTO users (user_id, email, password_hash, is_verified, created_at)
+               VALUES (?, ?, ?, 1, ?)`,
+              [userId, normalizedEmail, dummyHash, createdAt]
+            );
+            user = await getAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
+          } else if (!user.is_verified) {
+            await runAsync(`UPDATE users SET is_verified = 1 WHERE user_id = ?`, [user.user_id]);
+            user.is_verified = 1;
+          }
+
+          const token = jwt.sign(
+            { user_id: user.user_id, email: user.email },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+          );
+
+          return res.status(200).json({
+            success: true,
+            message: 'OTP verified successfully via Supabase. You are now logged in.',
+            token,
+            user: {
+              id: user.user_id,
+              email: user.email,
+              is_verified: true
+            }
+          });
+        } else if (error) {
+          console.log('[OtpController] Supabase OTP verify notice:', error.message);
+        }
+      } catch (sbErr) {
+        console.warn('[OtpController] Supabase verify error:', sbErr.message);
+      }
+    }
+
     const now = new Date();
 
+    // 2. Fallback to local SQLite verification (used for tests and offline dev)
     // First purge globally expired records
     await runAsync(`DELETE FROM email_otps WHERE expires_at <= ?`, [now.toISOString()]);
 

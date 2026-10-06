@@ -12,18 +12,7 @@ const initTransporter = async () => {
   const pass = process.env.EMAIL_PASS || process.env.SMTP_PASS;
   const port = parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || '587', 10);
 
-  if (process.env.RESEND_API_KEY) {
-    transporter = nodemailer.createTransport({
-      host: 'smtp.resend.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: 'resend',
-        pass: process.env.RESEND_API_KEY.trim(),
-      },
-    });
-    console.log('[EmailService] 🚀 Connected to Resend SMTP (smtp.resend.com) with live API key.');
-  } else if (host && user) {
+  if (host && user) {
     transporter = nodemailer.createTransport({
       host,
       port,
@@ -67,9 +56,7 @@ const sendMail = async ({ to, subject, html, text, meta = {} }) => {
   const mailRecord = {
     id: 'mail_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
     to,
-    from: (process.env.RESEND_API_KEY && (!process.env.SMTP_FROM || process.env.SMTP_FROM.includes('.local')))
-      ? 'MicroSub <onboarding@resend.dev>'
-      : (process.env.SMTP_FROM || 'Micro Subscriptions <no-reply@microsub.local>'),
+    from: process.env.SMTP_FROM || 'Micro Subscriptions <no-reply@microsub.com>',
     subject,
     html,
     text: text || html.replace(/<[^>]*>?/gm, ''),
@@ -85,39 +72,8 @@ const sendMail = async ({ to, subject, html, text, meta = {} }) => {
 
   console.log(`[EmailService] 📧 Email sent to: ${to} | Subject: "${subject}"`);
 
-  // 1. Direct Resend HTTPS REST API (Fastest & never blocked by cloud firewalls on Render/AWS)
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const resendRes = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: mailRecord.from,
-          to: [mailRecord.to],
-          subject: mailRecord.subject,
-          text: mailRecord.text,
-          html: mailRecord.html,
-        }),
-      });
-
-      const resendJson = await resendRes.json().catch(() => ({}));
-
-      if (!resendRes.ok) {
-        const errorMsg = resendJson.message || `Resend error status ${resendRes.status}`;
-        console.warn('[EmailService] Resend API delivery warning:', errorMsg);
-        mailRecord.smtpError = errorMsg;
-      } else {
-        console.log(`[EmailService] 🚀 Delivered instantly via Resend HTTPS API! ID: ${resendJson.id}`);
-        mailRecord.resendId = resendJson.id;
-      }
-    } catch (err) {
-      console.warn('[EmailService] Resend API error:', err.message);
-      mailRecord.smtpError = err.message;
-    }
-  } else if (transporter) {
+  // Deliver via transporter if available (Ethereal test accounts or custom SMTP)
+  if (transporter) {
     // 2. Fallback to Nodemailer transporter (Ethereal test accounts or custom SMTP)
     try {
       const info = await transporter.sendMail({
