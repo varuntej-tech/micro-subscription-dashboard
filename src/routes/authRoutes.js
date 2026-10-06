@@ -23,6 +23,9 @@ router.post('/verify', authController.verifyEmail);
 // Resend Verification Email (Step 3 with rate limiting)
 router.post('/resend-verification', resendVerificationLimiter, authController.resendVerification);
 
+// Firebase Client Configuration (Loaded dynamically, no keys in frontend source files)
+router.get('/config/firebase', authController.getFirebaseConfig);
+
 // Get current user profile
 router.get('/me', requireAuth, authController.getMe);
 

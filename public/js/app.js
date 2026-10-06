@@ -21,24 +21,40 @@ const state = {
   targetPhoneNumber: ''
 };
 
-// Firebase Configuration (Google 1-Click Authentication)
-const firebaseConfig = {
-  apiKey: "AIzaSyC4fCFybuVoAP_zV7i6ucPJIZ0zs67_7tw",
-  authDomain: "micro-subscription-dashboard.firebaseapp.com",
-  projectId: "micro-subscription-dashboard",
-  storageBucket: "micro-subscription-dashboard.firebasestorage.app",
-  messagingSenderId: "661356125246",
-  appId: "1:661356125246:web:833805dc3bffc8508f456f",
-  measurementId: "G-G5ME1CWRJJ"
-};
+// Firebase Dynamic Initialization (Config loaded securely from server .env - ZERO keys in repo)
+let firebaseInitPromise = null;
 
-if (typeof firebase !== 'undefined') {
-  try {
-    firebase.initializeApp(firebaseConfig);
-    console.log('[Firebase] Initialized for Google 1-Click Sign-In');
-  } catch (err) {
-    console.warn('[Firebase] Init warning:', err.message);
+async function ensureFirebaseInitialized() {
+  if (typeof firebase === 'undefined') return false;
+  if (firebase.apps && firebase.apps.length > 0) return true;
+
+  if (!firebaseInitPromise) {
+    firebaseInitPromise = (async () => {
+      try {
+        const res = await fetch('/api/config/firebase');
+        if (!res.ok) throw new Error('Could not load auth configuration');
+        const config = await res.json();
+        if (!config || !config.apiKey) {
+          console.warn('[Firebase] Configuration unavailable from server.');
+          return false;
+        }
+        if (!firebase.apps.length) {
+          firebase.initializeApp(config);
+        }
+        console.log('[Firebase] Initialized securely from server environment.');
+        return true;
+      } catch (err) {
+        console.warn('[Firebase] Initialization error:', err.message);
+        return false;
+      }
+    })();
   }
+  return firebaseInitPromise;
+}
+
+// Trigger background initialization on script load
+if (typeof firebase !== 'undefined') {
+  ensureFirebaseInitialized();
 }
 
 // UI Element Selectors
@@ -666,6 +682,10 @@ async function handleSendPhoneOtp() {
   elements.btnSendPhoneOtpText.textContent = 'Sending SMS...';
 
   try {
+    const isReady = await ensureFirebaseInitialized();
+    if (!isReady) {
+      throw new Error('Authentication service is initializing. Please wait a moment and try again.');
+    }
     const appVerifier = initRecaptchaVerifier();
     if (!appVerifier) {
       throw new Error('Firebase Authentication is not ready yet. Please refresh the page.');
@@ -743,17 +763,18 @@ async function handleVerifyPhoneOtp() {
 // GOOGLE 1-CLICK AUTHENTICATION (FIREBASE)
 // ==========================================
 async function handleGoogleSignIn() {
-  if (typeof firebase === 'undefined' || !firebase.auth) {
-    showToast('Google Sign-In is initializing. Please wait a moment...', 'info');
-    return;
-  }
-
   const btn = elements.btnGoogleSignin;
   const originalText = elements.btnGoogleSigninText ? elements.btnGoogleSigninText.textContent : 'Continue with Google';
 
   try {
     if (btn) btn.disabled = true;
     if (elements.btnGoogleSigninText) elements.btnGoogleSigninText.textContent = 'Connecting with Google...';
+
+    const isReady = await ensureFirebaseInitialized();
+    if (!isReady || typeof firebase === 'undefined' || !firebase.auth) {
+      showToast('Authentication service is initializing. Please wait a moment...', 'info');
+      return;
+    }
 
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
