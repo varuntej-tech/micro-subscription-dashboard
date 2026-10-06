@@ -85,8 +85,40 @@ const sendMail = async ({ to, subject, html, text, meta = {} }) => {
 
   console.log(`[EmailService] 📧 Email sent to: ${to} | Subject: "${subject}"`);
 
-  // Attempt real delivery if transporter configured
-  if (transporter) {
+  // 1. Direct Resend HTTPS REST API (Fastest & never blocked by cloud firewalls on Render/AWS)
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resendRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: mailRecord.from,
+          to: [mailRecord.to],
+          subject: mailRecord.subject,
+          text: mailRecord.text,
+          html: mailRecord.html,
+        }),
+      });
+
+      const resendJson = await resendRes.json().catch(() => ({}));
+
+      if (!resendRes.ok) {
+        const errorMsg = resendJson.message || `Resend error status ${resendRes.status}`;
+        console.warn('[EmailService] Resend API delivery warning:', errorMsg);
+        mailRecord.smtpError = errorMsg;
+      } else {
+        console.log(`[EmailService] 🚀 Delivered instantly via Resend HTTPS API! ID: ${resendJson.id}`);
+        mailRecord.resendId = resendJson.id;
+      }
+    } catch (err) {
+      console.warn('[EmailService] Resend API error:', err.message);
+      mailRecord.smtpError = err.message;
+    }
+  } else if (transporter) {
+    // 2. Fallback to Nodemailer transporter (Ethereal test accounts or custom SMTP)
     try {
       const info = await transporter.sendMail({
         from: mailRecord.from,
