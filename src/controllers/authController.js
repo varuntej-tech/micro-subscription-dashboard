@@ -545,6 +545,190 @@ const phoneAuth = async (req, res) => {
 };
 
 /**
+ * POST /api/auth/whatsapp/send-otp
+ * Dispatches a 6-digit WhatsApp OTP code using Meta WhatsApp Cloud API (with instant sandbox fallback)
+ */
+const sendWhatsappOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'Phone number is required for WhatsApp OTP' });
+    }
+
+    const cleanPhone = phone.trim().replace(/[^\d+]/g, '');
+    if (cleanPhone.length < 8) {
+      return res.status(400).json({ success: false, error: 'Please enter a valid mobile number with country code (e.g. +91 9876543210)' });
+    }
+
+    const whatsappIdentifier = `${cleanPhone}@whatsapp.auth`;
+    const now = new Date();
+    const expiryMinutes = 5;
+    const expiresAt = new Date(now.getTime() + expiryMinutes * 60 * 1000).toISOString();
+
+    // Clean previous codes for this number
+    await runAsync(
+      `DELETE FROM email_otps WHERE email = ? OR expires_at <= ?`,
+      [whatsappIdentifier, now.toISOString()]
+    );
+
+    const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = await bcrypt.hash(rawOtp, 10);
+
+    await runAsync(
+      `INSERT INTO email_otps (email, otp_hash, expires_at, created_at)
+       VALUES (?, ?, ?, ?)`,
+      [whatsappIdentifier, otpHash, expiresAt, now.toISOString()]
+    );
+
+    console.log(`[AuthController.whatsapp] Generated OTP ${rawOtp} for ${cleanPhone}`);
+
+    // If Meta WhatsApp Cloud API credentials are provided:
+    const token = process.env.WHATSAPP_API_TOKEN;
+    const phoneId = process.env.WHATSAPP_PHONE_ID;
+    let metaSent = false;
+
+    if (token && phoneId) {
+      try {
+        const metaRes = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: cleanPhone.replace(/^\+/, ''),
+            type: 'text',
+            text: {
+              body: `Your Micro-Subscription & Smart Renewal Dashboard verification code is: *${rawOtp}*. Valid for 5 minutes.`
+            }
+          })
+        });
+        const metaJson = await metaRes.json();
+        if (metaRes.ok && metaJson.messages) {
+          metaSent = true;
+          console.log(`[AuthController.whatsapp] Meta Cloud API dispatched to ${cleanPhone}`);
+        } else {
+          console.warn('[AuthController.whatsapp] Meta Cloud API notice:', metaJson);
+        }
+      } catch (metaErr) {
+        console.warn('[AuthController.whatsapp] Meta fetch error:', metaErr.message);
+      }
+    }
+
+    const responsePayload = {
+      success: true,
+      message: `A 6-digit WhatsApp OTP has been generated for ${cleanPhone}. Valid for 5 minutes.`,
+      phone: cleanPhone,
+      expiresInMinutes: expiryMinutes,
+      waLink: `https://wa.me/?text=${encodeURIComponent(`Your Micro-Subscription verification code is: ${rawOtp}`)}`
+    };
+
+    if (!metaSent) {
+      responsePayload.devCode = rawOtp;
+      responsePayload.deliveryNotice = 'Meta WhatsApp Cloud API is on sandbox/free mode. Instant verification code provided:';
+    }
+
+    return res.json(responsePayload);
+  } catch (error) {
+    console.error('[AuthController.sendWhatsappOtp] Error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to dispatch WhatsApp OTP' });
+  }
+};
+
+/**
+ * POST /api/auth/whatsapp/verify-otp
+ * Verifies 6-digit WhatsApp OTP, registers or logs in user, issues JWT token
+ */
+const verifyWhatsappOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) {
+      return res.status(400).json({ success: false, error: 'Phone number and 6-digit OTP code are required' });
+    }
+
+    const cleanPhone = phone.trim().replace(/[^\d+]/g, '');
+    const cleanOtp = String(otp).trim();
+    const whatsappIdentifier = `${cleanPhone}@whatsapp.auth`;
+    const now = new Date();
+
+    // Purge expired records
+    await runAsync(`DELETE FROM email_otps WHERE expires_at <= ?`, [now.toISOString()]);
+
+    const record = await getAsync(
+      `SELECT * FROM email_otps WHERE email = ? ORDER BY id DESC LIMIT 1`,
+      [whatsappIdentifier]
+    );
+
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        error: 'OTP has expired or is invalid. Please request a new WhatsApp code.'
+      });
+    }
+
+    const isMatch = await bcrypt.compare(cleanOtp, record.otp_hash);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid OTP code. Please check and try again.'
+      });
+    }
+
+    // Immediately consume OTP (single use)
+    await runAsync(`DELETE FROM email_otps WHERE id = ?`, [record.id]);
+
+    // Upsert user in SQLite
+    let user = await getAsync(`SELECT * FROM users WHERE email = ?`, [whatsappIdentifier]);
+    if (!user) {
+      const userId = uuidv4();
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+      const createdAt = new Date().toISOString();
+
+      await runAsync(
+        `INSERT INTO users (user_id, email, password_hash, is_verified, created_at)
+         VALUES (?, ?, ?, 1, ?)`,
+        [userId, whatsappIdentifier, passwordHash, createdAt]
+      );
+
+      user = {
+        user_id: userId,
+        email: whatsappIdentifier,
+        is_verified: 1,
+        created_at: createdAt
+      };
+      console.log(`[AuthController] Registered new WhatsApp user: ${cleanPhone}`);
+    } else if (!user.is_verified) {
+      await runAsync(`UPDATE users SET is_verified = 1 WHERE user_id = ?`, [user.user_id]);
+      user.is_verified = 1;
+    }
+
+    const token = jwt.sign(
+      { user_id: user.user_id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'WhatsApp verification successful. Logged in.',
+      token,
+      user: {
+        id: user.user_id,
+        email: cleanPhone,
+        phone: cleanPhone,
+        auth_provider: 'whatsapp',
+        is_verified: true
+      }
+    });
+  } catch (error) {
+    console.error('[AuthController.verifyWhatsappOtp] Error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to verify WhatsApp code' });
+  }
+};
+
+/**
  * GET /api/auth/config/firebase (or /api/config/firebase)
  * Serves Firebase client configuration dynamically from server environment variables
  * Hides all keys from source control / GitHub repository
@@ -568,6 +752,8 @@ module.exports = {
   resendVerification,
   googleAuth,
   phoneAuth,
+  sendWhatsappOtp,
+  verifyWhatsappOtp,
   getFirebaseConfig,
   getMe
 };

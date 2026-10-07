@@ -16,6 +16,10 @@ router.post('/google', authController.googleAuth);
 // Phone SMS Authentication (Firebase 6-digit SMS OTP)
 router.post('/phone', authController.phoneAuth);
 
+// WhatsApp OTP Authentication (Meta Cloud API / Direct Code)
+router.post('/whatsapp/send-otp', authController.sendWhatsappOtp);
+router.post('/whatsapp/verify-otp', authController.verifyWhatsappOtp);
+
 // Token / OTP Verification (Step 4)
 router.get('/verify', authController.verifyEmail);
 router.post('/verify', authController.verifyEmail);

@@ -18,7 +18,8 @@ const state = {
   otpTimeRemaining: 300,
   otpTargetEmail: '',
   phoneConfirmationResult: null,
-  targetPhoneNumber: ''
+  targetPhoneNumber: '',
+  whatsappTargetPhone: ''
 };
 
 // Firebase Dynamic Initialization (Config loaded securely from server .env - ZERO keys in repo)
@@ -80,6 +81,7 @@ const elements = {
   // Auth Forms & Tabs
   tabLogin: document.getElementById('tab-login'),
   tabOtpLogin: document.getElementById('tab-otp-login'),
+  tabWhatsappLogin: document.getElementById('tab-whatsapp-login'),
   tabPhoneLogin: document.getElementById('tab-phone-login'),
   tabSignup: document.getElementById('tab-signup'),
   formLogin: document.getElementById('form-login'),
@@ -130,6 +132,24 @@ const elements = {
   btnVerifyPhoneOtp: document.getElementById('btn-verify-phone-otp'),
   btnVerifyPhoneOtpText: document.getElementById('btn-verify-phone-otp-text'),
   btnResendPhoneOtp: document.getElementById('btn-resend-phone-otp'),
+
+  // WhatsApp OTP Authentication Flow Elements
+  containerWhatsappFlow: document.getElementById('container-whatsapp-flow'),
+  whatsappFlowAlert: document.getElementById('whatsapp-flow-alert'),
+  whatsappFlowAlertIcon: document.getElementById('whatsapp-flow-alert-icon'),
+  whatsappFlowAlertText: document.getElementById('whatsapp-flow-alert-text'),
+  whatsappStateSend: document.getElementById('whatsapp-state-send'),
+  whatsappInputCountry: document.getElementById('whatsapp-input-country'),
+  whatsappInputNumber: document.getElementById('whatsapp-input-number'),
+  btnSendWhatsappOtp: document.getElementById('btn-send-whatsapp-otp'),
+  btnSendWhatsappOtpText: document.getElementById('btn-send-whatsapp-otp-text'),
+  whatsappStateVerify: document.getElementById('whatsapp-state-verify'),
+  whatsappTargetDisplay: document.getElementById('whatsapp-target-display'),
+  btnWhatsappChange: document.getElementById('btn-whatsapp-change'),
+  whatsappInputCode: document.getElementById('whatsapp-input-code'),
+  btnVerifyWhatsappOtp: document.getElementById('btn-verify-whatsapp-otp'),
+  btnVerifyWhatsappOtpText: document.getElementById('btn-verify-whatsapp-otp-text'),
+  btnResendWhatsappOtp: document.getElementById('btn-resend-whatsapp-otp'),
 
   // Interstitial Verification View
   verifyEmailDisplay: document.getElementById('verify-email-display'),
@@ -357,6 +377,8 @@ function renderView() {
     showSignupTab();
   } else if (route === 'otp' || route === 'otp-login') {
     showOtpTab();
+  } else if (route === 'whatsapp' || route === 'whatsapp-login') {
+    showWhatsappTab();
   } else if (route === 'phone' || route === 'phone-login') {
     showPhoneTab();
   } else {
@@ -364,17 +386,21 @@ function renderView() {
   }
 }
 
-const TAB_ACTIVE_CLASS = 'py-2 text-[11px] font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow text-center';
-const TAB_INACTIVE_CLASS = 'py-2 text-[11px] font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200 text-center';
+const TAB_ACTIVE_CLASS = 'py-2 text-[10px] sm:text-[11px] font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow text-center';
+const TAB_ACTIVE_WHATSAPP_CLASS = 'py-2 text-[10px] sm:text-[11px] font-semibold rounded-lg transition-all bg-emerald-600 text-white shadow text-center flex items-center justify-center gap-1';
+const TAB_INACTIVE_CLASS = 'py-2 text-[10px] sm:text-[11px] font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200 text-center';
+const TAB_INACTIVE_WHATSAPP_CLASS = 'py-2 text-[10px] sm:text-[11px] font-semibold rounded-lg transition-all text-slate-400 hover:text-emerald-400 text-center flex items-center justify-center gap-1';
 
 function showLoginTab() {
   if (elements.tabLogin) elements.tabLogin.className = TAB_ACTIVE_CLASS;
   if (elements.tabOtpLogin) elements.tabOtpLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabWhatsappLogin) elements.tabWhatsappLogin.className = TAB_INACTIVE_WHATSAPP_CLASS;
   if (elements.tabPhoneLogin) elements.tabPhoneLogin.className = TAB_INACTIVE_CLASS;
   if (elements.tabSignup) elements.tabSignup.className = TAB_INACTIVE_CLASS;
 
   elements.formLogin.classList.remove('hidden');
   elements.containerOtpFlow.classList.add('hidden');
+  if (elements.containerWhatsappFlow) elements.containerWhatsappFlow.classList.add('hidden');
   if (elements.containerPhoneFlow) elements.containerPhoneFlow.classList.add('hidden');
   elements.formSignup.classList.add('hidden');
   elements.loginErrorAlert.classList.add('hidden');
@@ -383,11 +409,13 @@ function showLoginTab() {
 function showOtpTab() {
   if (elements.tabOtpLogin) elements.tabOtpLogin.className = TAB_ACTIVE_CLASS;
   if (elements.tabLogin) elements.tabLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabWhatsappLogin) elements.tabWhatsappLogin.className = TAB_INACTIVE_WHATSAPP_CLASS;
   if (elements.tabPhoneLogin) elements.tabPhoneLogin.className = TAB_INACTIVE_CLASS;
   if (elements.tabSignup) elements.tabSignup.className = TAB_INACTIVE_CLASS;
 
   elements.containerOtpFlow.classList.remove('hidden');
   elements.formLogin.classList.add('hidden');
+  if (elements.containerWhatsappFlow) elements.containerWhatsappFlow.classList.add('hidden');
   if (elements.containerPhoneFlow) elements.containerPhoneFlow.classList.add('hidden');
   elements.formSignup.classList.add('hidden');
   hideOtpAlert();
@@ -396,15 +424,35 @@ function showOtpTab() {
   }
 }
 
+function showWhatsappTab() {
+  if (elements.tabWhatsappLogin) elements.tabWhatsappLogin.className = TAB_ACTIVE_WHATSAPP_CLASS;
+  if (elements.tabLogin) elements.tabLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabOtpLogin) elements.tabOtpLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabPhoneLogin) elements.tabPhoneLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabSignup) elements.tabSignup.className = TAB_INACTIVE_CLASS;
+
+  if (elements.containerWhatsappFlow) elements.containerWhatsappFlow.classList.remove('hidden');
+  elements.formLogin.classList.add('hidden');
+  elements.containerOtpFlow.classList.add('hidden');
+  if (elements.containerPhoneFlow) elements.containerPhoneFlow.classList.add('hidden');
+  elements.formSignup.classList.add('hidden');
+  hideWhatsappAlert();
+  if (!state.whatsappTargetPhone) {
+    showWhatsappState1();
+  }
+}
+
 function showPhoneTab() {
   if (elements.tabPhoneLogin) elements.tabPhoneLogin.className = TAB_ACTIVE_CLASS;
   if (elements.tabLogin) elements.tabLogin.className = TAB_INACTIVE_CLASS;
   if (elements.tabOtpLogin) elements.tabOtpLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabWhatsappLogin) elements.tabWhatsappLogin.className = TAB_INACTIVE_WHATSAPP_CLASS;
   if (elements.tabSignup) elements.tabSignup.className = TAB_INACTIVE_CLASS;
 
   if (elements.containerPhoneFlow) elements.containerPhoneFlow.classList.remove('hidden');
   elements.formLogin.classList.add('hidden');
   elements.containerOtpFlow.classList.add('hidden');
+  if (elements.containerWhatsappFlow) elements.containerWhatsappFlow.classList.add('hidden');
   elements.formSignup.classList.add('hidden');
   hidePhoneAlert();
   if (!state.phoneConfirmationResult) {
@@ -416,13 +464,172 @@ function showSignupTab() {
   if (elements.tabSignup) elements.tabSignup.className = TAB_ACTIVE_CLASS;
   if (elements.tabLogin) elements.tabLogin.className = TAB_INACTIVE_CLASS;
   if (elements.tabOtpLogin) elements.tabOtpLogin.className = TAB_INACTIVE_CLASS;
+  if (elements.tabWhatsappLogin) elements.tabWhatsappLogin.className = TAB_INACTIVE_WHATSAPP_CLASS;
   if (elements.tabPhoneLogin) elements.tabPhoneLogin.className = TAB_INACTIVE_CLASS;
 
   elements.formSignup.classList.remove('hidden');
   elements.formLogin.classList.add('hidden');
   elements.containerOtpFlow.classList.add('hidden');
+  if (elements.containerWhatsappFlow) elements.containerWhatsappFlow.classList.add('hidden');
   if (elements.containerPhoneFlow) elements.containerPhoneFlow.classList.add('hidden');
   elements.signupErrorAlert.classList.add('hidden');
+}
+
+// ==========================================
+// WHATSAPP OTP AUTHENTICATION
+// ==========================================
+function showWhatsappAlert(message, type = 'error') {
+  if (!elements.whatsappFlowAlert) return;
+  elements.whatsappFlowAlert.classList.remove(
+    'hidden',
+    'bg-rose-500/10', 'border-rose-500/20', 'text-rose-300',
+    'bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-300',
+    'bg-indigo-500/10', 'border-indigo-500/20', 'text-indigo-300',
+    'bg-amber-500/10', 'border-amber-500/20', 'text-amber-300'
+  );
+
+  if (type === 'success') {
+    elements.whatsappFlowAlert.classList.add('bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-300');
+    elements.whatsappFlowAlertIcon.className = 'fa-solid fa-circle-check mt-0.5 text-emerald-400';
+  } else if (type === 'warning') {
+    elements.whatsappFlowAlert.classList.add('bg-amber-500/10', 'border-amber-500/20', 'text-amber-300');
+    elements.whatsappFlowAlertIcon.className = 'fa-solid fa-triangle-exclamation mt-0.5 text-amber-400';
+  } else if (type === 'info') {
+    elements.whatsappFlowAlert.classList.add('bg-indigo-500/10', 'border-indigo-500/20', 'text-indigo-300');
+    elements.whatsappFlowAlertIcon.className = 'fa-solid fa-circle-info mt-0.5 text-indigo-400';
+  } else {
+    elements.whatsappFlowAlert.classList.add('bg-rose-500/10', 'border-rose-500/20', 'text-rose-300');
+    elements.whatsappFlowAlertIcon.className = 'fa-solid fa-circle-exclamation mt-0.5 text-rose-400';
+  }
+
+  elements.whatsappFlowAlertText.innerHTML = message;
+}
+
+function hideWhatsappAlert() {
+  if (elements.whatsappFlowAlert) elements.whatsappFlowAlert.classList.add('hidden');
+}
+
+function showWhatsappState1() {
+  state.whatsappTargetPhone = '';
+  if (elements.whatsappStateSend) elements.whatsappStateSend.classList.remove('hidden');
+  if (elements.whatsappStateVerify) elements.whatsappStateVerify.classList.add('hidden');
+  hideWhatsappAlert();
+  if (elements.whatsappInputNumber) elements.whatsappInputNumber.focus();
+}
+
+function showWhatsappState2(phone) {
+  state.whatsappTargetPhone = phone;
+  if (elements.whatsappTargetDisplay) elements.whatsappTargetDisplay.textContent = phone;
+  if (elements.whatsappStateSend) elements.whatsappStateSend.classList.add('hidden');
+  if (elements.whatsappStateVerify) elements.whatsappStateVerify.classList.remove('hidden');
+  if (elements.whatsappInputCode) {
+    elements.whatsappInputCode.value = '';
+    elements.whatsappInputCode.focus();
+  }
+}
+
+async function handleSendWhatsappOtp() {
+  hideWhatsappAlert();
+  const country = elements.whatsappInputCountry ? elements.whatsappInputCountry.value.trim() : '+91';
+  const rawNumber = elements.whatsappInputNumber ? elements.whatsappInputNumber.value.trim().replace(/\s+/g, '') : '';
+
+  if (!rawNumber || rawNumber.length < 5) {
+    showWhatsappAlert('Please enter a valid WhatsApp mobile number.', 'error');
+    if (elements.whatsappInputNumber) elements.whatsappInputNumber.focus();
+    return;
+  }
+
+  const fullPhone = `${country}${rawNumber}`;
+  elements.btnSendWhatsappOtp.disabled = true;
+  elements.btnSendWhatsappOtpText.textContent = 'Sending WhatsApp OTP...';
+
+  try {
+    const res = await api('/api/auth/whatsapp/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone: fullPhone })
+    });
+
+    if (res.ok) {
+      showWhatsappState2(fullPhone);
+      let alertMsg = `A 6-digit verification code has been dispatched to WhatsApp: <strong>${fullPhone}</strong>.`;
+      if (res.data.devCode) {
+        alertMsg = `
+          <div class="space-y-2">
+            <div class="flex items-center gap-1.5 font-medium text-emerald-300">
+              <i class="fa-brands fa-whatsapp text-emerald-400 text-sm"></i>
+              <span>WhatsApp Verification Code:</span>
+            </div>
+            <div class="flex items-center justify-between gap-2 bg-slate-900/90 border border-emerald-500/40 p-2.5 rounded-lg">
+              <span class="font-mono text-lg font-bold text-emerald-400 tracking-widest pl-1">${res.data.devCode}</span>
+              <button type="button" id="btn-autofill-whatsapp" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded transition shadow-sm">Click to Auto-Fill ➔</button>
+            </div>
+            <div class="text-[11px] text-slate-400">Sandbox/Free mode active. Code ready above!</div>
+          </div>
+        `;
+      }
+      showWhatsappAlert(alertMsg, res.data.devCode ? 'info' : 'success');
+      showToast('WhatsApp code dispatched!', 'success');
+
+      if (res.data.devCode) {
+        setTimeout(() => {
+          const btnAutofill = document.getElementById('btn-autofill-whatsapp');
+          if (btnAutofill) {
+            btnAutofill.onclick = () => {
+              elements.whatsappInputCode.value = res.data.devCode;
+              elements.whatsappInputCode.focus();
+            };
+          }
+        }, 50);
+      }
+    } else {
+      showWhatsappAlert(res.data.error || 'Failed to send WhatsApp code.', 'error');
+    }
+  } catch (err) {
+    console.error('[WhatsApp Send] Error:', err);
+    showWhatsappAlert('Network error while requesting WhatsApp OTP.', 'error');
+  } finally {
+    elements.btnSendWhatsappOtp.disabled = false;
+    elements.btnSendWhatsappOtpText.textContent = 'Send WhatsApp OTP';
+  }
+}
+
+async function handleVerifyWhatsappOtp() {
+  hideWhatsappAlert();
+  const phone = state.whatsappTargetPhone;
+  const otp = elements.whatsappInputCode ? elements.whatsappInputCode.value.trim() : '';
+
+  if (!otp || otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+    showWhatsappAlert('Please enter a valid 6-digit numeric WhatsApp code.', 'error');
+    if (elements.whatsappInputCode) elements.whatsappInputCode.focus();
+    return;
+  }
+
+  elements.btnVerifyWhatsappOtp.disabled = true;
+  elements.btnVerifyWhatsappOtpText.textContent = 'Verifying WhatsApp...';
+
+  try {
+    const res = await api('/api/auth/whatsapp/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, otp })
+    });
+
+    if (res.ok && res.data.token) {
+      state.token = res.data.token;
+      state.user = res.data.user;
+      localStorage.setItem('token', state.token);
+      localStorage.setItem('user', JSON.stringify(state.user));
+      showToast('WhatsApp authentication successful! Welcome.', 'success');
+      navigateTo('dashboard');
+    } else {
+      showWhatsappAlert(res.data.error || 'Invalid WhatsApp verification code.', 'error');
+    }
+  } catch (err) {
+    console.error('[WhatsApp Verify] Error:', err);
+    showWhatsappAlert('Network error while verifying WhatsApp code.', 'error');
+  } finally {
+    elements.btnVerifyWhatsappOtp.disabled = false;
+    elements.btnVerifyWhatsappOtpText.textContent = 'Verify WhatsApp & Log In';
+  }
 }
 
 // ==========================================
@@ -1698,12 +1905,37 @@ function initEvents() {
   // Auth tabs & forms
   elements.tabLogin.onclick = () => { navigateTo('login'); showLoginTab(); };
   elements.tabOtpLogin.onclick = () => { navigateTo('otp'); showOtpTab(); };
+  if (elements.tabWhatsappLogin) {
+    elements.tabWhatsappLogin.onclick = () => { navigateTo('whatsapp'); showWhatsappTab(); };
+  }
   if (elements.tabPhoneLogin) {
     elements.tabPhoneLogin.onclick = () => { navigateTo('phone'); showPhoneTab(); };
   }
   elements.tabSignup.onclick = () => { navigateTo('signup'); showSignupTab(); };
   elements.formLogin.onsubmit = handleLogin;
   elements.formSignup.onsubmit = handleSignup;
+
+  // WhatsApp OTP Authentication Event Handlers
+  if (elements.btnSendWhatsappOtp) elements.btnSendWhatsappOtp.onclick = handleSendWhatsappOtp;
+  if (elements.btnVerifyWhatsappOtp) elements.btnVerifyWhatsappOtp.onclick = handleVerifyWhatsappOtp;
+  if (elements.btnWhatsappChange) elements.btnWhatsappChange.onclick = showWhatsappState1;
+  if (elements.btnResendWhatsappOtp) elements.btnResendWhatsappOtp.onclick = handleSendWhatsappOtp;
+  if (elements.whatsappInputNumber) {
+    elements.whatsappInputNumber.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSendWhatsappOtp();
+      }
+    };
+  }
+  if (elements.whatsappInputCode) {
+    elements.whatsappInputCode.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleVerifyWhatsappOtp();
+      }
+    };
+  }
 
   // Phone SMS Authentication Event Handlers
   if (elements.btnSendPhoneOtp) elements.btnSendPhoneOtp.onclick = handleSendPhoneOtp;

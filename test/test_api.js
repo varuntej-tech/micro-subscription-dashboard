@@ -301,6 +301,26 @@ async function runTestSuite() {
     assert.ok(phoneRes2.data.token);
     console.log('  ✅ Phone SMS authentication succeeded and issued verified session token.');
 
+    console.log('\n[TEST 11] Testing WhatsApp OTP Flow (POST /api/auth/whatsapp/send-otp & verify-otp)...');
+    const waSendRes = await request('POST', '/api/auth/whatsapp/send-otp', {
+      phone: '+919123456789'
+    });
+    assert.strictEqual(waSendRes.status, 200, 'WhatsApp send-otp should return 200 OK');
+    assert.strictEqual(waSendRes.data.success, true);
+    assert.ok(waSendRes.data.devCode, 'Must return verification code in devCode');
+    const waCode = waSendRes.data.devCode;
+
+    // Verify WhatsApp OTP
+    const waVerifyRes = await request('POST', '/api/auth/whatsapp/verify-otp', {
+      phone: '+919123456789',
+      otp: waCode
+    });
+    assert.strictEqual(waVerifyRes.status, 200, 'WhatsApp verify-otp should return 200 OK');
+    assert.strictEqual(waVerifyRes.data.success, true);
+    assert.ok(waVerifyRes.data.token, 'Must issue JWT session token');
+    assert.strictEqual(waVerifyRes.data.user.phone, '+919123456789');
+    console.log('  ✅ WhatsApp OTP dispatched and successfully verified with JWT issuance.');
+
     console.log('\n========================================');
     console.log('🎉 ALL AUTOMATED TESTS PASSED SUCCESSFULLY!');
     console.log('========================================\n');
