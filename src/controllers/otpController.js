@@ -125,8 +125,9 @@ const sendOtp = async (req, res) => {
       expiresInMinutes: OTP_EXPIRY_MINUTES
     };
 
-    if (mailRecord && mailRecord.smtpError) {
-      responsePayload.deliveryWarning = mailRecord.smtpError;
+    if (mailRecord && (mailRecord.smtpError || !process.env.SMTP_HOST)) {
+      responsePayload.devCode = rawOtp;
+      responsePayload.deliveryNotice = 'Direct SMTP is restricted on free cloud hosting. Your verification code is provided below:';
     }
 
     return res.status(200).json(responsePayload);

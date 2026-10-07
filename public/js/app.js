@@ -539,11 +539,36 @@ async function handleSendOtp() {
     if (res.ok) {
       showOtpState2(email);
       let alertMsg = `A 6-digit OTP code has been sent to <strong>${email}</strong>. Valid for 5 minutes.`;
-      if (res.data.deliveryWarning) {
+      if (res.data.devCode) {
+        alertMsg = `
+          <div class="space-y-2">
+            <div class="flex items-center gap-1.5 font-medium text-emerald-300">
+              <span>⚡</span> <span>Instant Verification Code:</span>
+            </div>
+            <div class="flex items-center justify-between gap-2 bg-slate-900/90 border border-emerald-500/40 p-2.5 rounded-lg">
+              <span class="font-mono text-lg font-bold text-emerald-400 tracking-widest pl-1">${res.data.devCode}</span>
+              <button type="button" id="btn-autofill-otp" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded transition shadow-sm">Click to Auto-Fill ➔</button>
+            </div>
+            <div class="text-[11px] text-slate-400">Live SMTP is restricted on free cloud hosting. Use code above to log in!</div>
+          </div>
+        `;
+      } else if (res.data.deliveryWarning) {
         alertMsg = `A 6-digit OTP code was generated for <strong>${email}</strong>.<br><div class="mt-1.5 pt-1.5 border-t border-amber-500/30 text-[11px] text-amber-200 font-normal">⚠️ <strong>Delivery Notice:</strong> ${res.data.deliveryWarning}</div>`;
       }
-      showOtpAlert(alertMsg, res.data.deliveryWarning ? 'warning' : 'success');
-      showToast(res.data.deliveryWarning ? 'OTP generated (Check notice below)' : 'OTP sent! Please check your inbox.', res.data.deliveryWarning ? 'warning' : 'success');
+      showOtpAlert(alertMsg, res.data.devCode ? 'info' : (res.data.deliveryWarning ? 'warning' : 'success'));
+      showToast(res.data.devCode ? 'Verification code ready!' : 'OTP sent! Please check your inbox.', 'success');
+
+      if (res.data.devCode) {
+        setTimeout(() => {
+          const btnAutofill = document.getElementById('btn-autofill-otp');
+          if (btnAutofill) {
+            btnAutofill.onclick = () => {
+              elements.otpInputCode.value = res.data.devCode;
+              elements.otpInputCode.focus();
+            };
+          }
+        }, 50);
+      }
     } else {
       showOtpAlert(res.data.error || 'Failed to send OTP. Please try again.', 'error');
     }
