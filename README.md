@@ -51,7 +51,7 @@ The **Micro-Subscription & Smart Renewal Dashboard** solves this problem by prov
 ### 1. Multi-Channel Authentication
 * **Google 1-Click (Firebase)**: One-click sign-in via Google OAuth popup.
 * **Phone SMS OTP (Firebase)**: Mobile number verification with invisible reCAPTCHA and 6-digit SMS verification code.
-* **Email OTP (Supabase)**: Passwordless 6-digit one-time password dispatched worldwide.
+* **Email OTP**: Passwordless 6-digit one-time password verification with instant on-screen fallback.
 * **Password Authentication**: Standard email and salted Bcrypt password authentication.
 * **JWT Session Guarding**: Issues secure 7-day JSON Web Tokens to protect user endpoints.
 
@@ -92,10 +92,10 @@ Normalizes subscriptions across varying cycles to calculate actionable run-rates
                 │                             │
                 ▼                             ▼
 ┌──────────────────────────────┐    ┌─────────────────────────┐
-│     Firebase / Supabase      │    │    Node.js Express API  │
+│           Firebase           │    │    Node.js Express API  │
 │  • Google Identity Provider  │    │  • Auth & Session Guard │
 │  • Phone SMS Verification    │    │  • Financial Runway     │
-│  • Worldwide OTP Dispatch    │    │  • 24/7 Cron Daemon     │
+│  • Client Security Rules     │    │  • 24/7 Cron Daemon     │
 └──────────────────────────────┘    └────────────┬────────────┘
                                                  │
                                            (SQL Queries)

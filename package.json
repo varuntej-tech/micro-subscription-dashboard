@@ -12,7 +12,6 @@
     "test:otp": "node test/test_otp_api.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.117.2",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
